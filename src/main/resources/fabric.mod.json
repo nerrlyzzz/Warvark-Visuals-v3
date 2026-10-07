@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "waraxvisuals",
+  "version": "${version}",
+  "name": "Warax Visuals",
+  "description": "Визуальный клиент: 47 модулей — зум, FOV, ViewModel, China Hat, круги прыжка, следы, Target HUD, эффекты, компас, уведомления и др. Меню — Правый Shift.",
+  "authors": ["Warax"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.warax.visuals.WaraxVisuals"]
+  },
+  "mixins": ["waraxvisuals.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.11.0",
+    "fabric": "*",
+    "minecraft": "1.16.x",
+    "java": ">=8"
+  }
+}

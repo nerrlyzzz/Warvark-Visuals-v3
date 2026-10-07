@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.warax.visuals.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "BackgroundRendererMixin",
+    "BossBarHudMixin",
+    "ClientPlayerInteractionManagerMixin",
+    "ClientWorldMixin",
+    "GameRendererMixin",
+    "HeldItemRendererMixin",
+    "InGameHudMixin",
+    "InGameOverlayRendererMixin",
+    "MinecraftClientAccessor",
+    "LivingEntityMixin",
+    "LivingEntityRendererMixin",
+    "ParticleManagerMixin",
+    "WorldMixin",
+    "WorldRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
