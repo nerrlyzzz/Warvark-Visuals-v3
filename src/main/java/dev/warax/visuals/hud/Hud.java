@@ -117,7 +117,7 @@ public final class Hud {
         }
         if (ModuleManager.YAWPTCH.isActive()) {
             lines.add(String.format(Locale.ROOT, "Углы: %d° %d°",
-                    Math.round(mc.player.getYaw()), Math.round(mc.player.getPitch())));
+                    Math.round(mc.player.yaw), Math.round(mc.player.pitch)));
         }
         if (ModuleManager.REACH.isActive()) {
             double r = reach(mc);

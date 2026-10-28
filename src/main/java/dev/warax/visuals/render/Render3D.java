@@ -393,25 +393,37 @@ public final class Render3D {
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder b = tess.getBuffer();
         int count = 0;
-        for (BlockEntity be : mc.world.getBlockEntities().values()) {
-            if (!(be instanceof Inventory)) {
-                continue;
+        int r = (ModuleManager.stDist.i() >> 4) + 1;
+        int cx0 = ((int) mc.player.getX()) >> 4;
+        int cz0 = ((int) mc.player.getZ()) >> 4;
+        for (int dxc = -r; dxc <= r; dxc++) {
+            for (int dzc = -r; dzc <= r; dzc++) {
+                net.minecraft.world.chunk.Chunk chunk = mc.world.getChunk(cx0 + dxc, cz0 + dzc);
+                if (!(chunk instanceof net.minecraft.world.chunk.WorldChunk)) {
+                    continue;
+                }
+                net.minecraft.world.chunk.WorldChunk wc = (net.minecraft.world.chunk.WorldChunk) chunk;
+                for (BlockEntity be : wc.getBlockEntities().values()) {
+                    if (!(be instanceof Inventory)) {
+                        continue;
+                    }
+                    BlockPos bp = be.getPos();
+                    Vec3d cp = new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5);
+                    if (cp.squaredDistanceTo(cam) > dsq) {
+                        continue;
+                    }
+                    double x1 = bp.getX() - cam.x, y1 = bp.getY() - cam.y, z1 = bp.getZ() - cam.z;
+                    double x2 = x1 + 1, y2 = y1 + 1, z2 = z1 + 1;
+                    float k = (count % 24) / 24f;
+                    int c1 = ModuleManager.color(ModuleManager.stColor, k);
+                    int c2 = ModuleManager.color(ModuleManager.stColor, 1f - k);
+                    RenderSystem.lineWidth(1.5f);
+                    b.begin(GL11.GL_LINES, VertexFormats.POSITION_COLOR);
+                    boxEdges(b, m, x1 + 0.01, y1 + 0.01, z1 + 0.01, x2 - 0.01, y2 - 0.01, z2 - 0.01, c1, c2);
+                    tess.draw();
+                    count++;
+                }
             }
-            BlockPos bp = be.getPos();
-            Vec3d cp = new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5);
-            if (cp.squaredDistanceTo(cam) > dsq) {
-                continue;
-            }
-            double x1 = bp.getX() - cam.x, y1 = bp.getY() - cam.y, z1 = bp.getZ() - cam.z;
-            double x2 = x1 + 1, y2 = y1 + 1, z2 = z1 + 1;
-            float k = (count % 24) / 24f;
-            int c1 = ModuleManager.color(ModuleManager.stColor, k);
-            int c2 = ModuleManager.color(ModuleManager.stColor, 1f - k);
-            RenderSystem.lineWidth(1.5f);
-            b.begin(GL11.GL_LINES, VertexFormats.POSITION_COLOR);
-            boxEdges(b, m, x1 + 0.01, y1 + 0.01, z1 + 0.01, x2 - 0.01, y2 - 0.01, z2 - 0.01, c1, c2);
-            tess.draw();
-            count++;
         }
     }
 
