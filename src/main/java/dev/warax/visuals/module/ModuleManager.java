@@ -70,8 +70,8 @@ public final class ModuleManager {
     // --- Трассеры / ESP / Склад (новое) ---
     public static final String[] TARGETS = {"Все", "Живые", "Игроки", "Мобы", "Животные", "Предметы"};
     public static Module TRACERS, ESP, STORAGEESP;
-    public static Setting.Mode trTarget, trColor, espTarget, espColor, stColor;
-    public static Setting.Num trDist, espDist, stDist;
+    public static Setting.Mode tcTarget, tcColor, espTarget, espColor, stColor;
+    public static Setting.Num tcDist, espDist, stDist;
     public static Setting.Bool espFill;
 
     public static Module ITEMESP, POINTERS;
@@ -203,9 +203,9 @@ public final class ModuleManager {
         NOBLOCKPARTICLES = reg(new Module("Без частиц блоков", "Убирает частицы при ломании блоков (+FPS).", Category.WORLD));
 
         TRACERS = reg(new Module("Трассеры", "Линии от вашей камеры до существ и предметов.", Category.VISUAL));
-        trTarget = TRACERS.add(new Setting.Mode("Цель", TARGETS, 0));
-        trColor = TRACERS.add(new Setting.Mode("Цвет", COLORS, 0));
-        trDist = TRACERS.add(new Setting.Num("Дальность", 5, 128, 1, 64));
+        tcTarget = TRACERS.add(new Setting.Mode("Цель", TARGETS, 0));
+        tcColor = TRACERS.add(new Setting.Mode("Цвет", COLORS, 0));
+        tcDist = TRACERS.add(new Setting.Num("Дальность", 5, 128, 1, 64));
 
         ESP = reg(new Module("Каркасы сущностей", "Цветная обводка вокруг существ и предметов.", Category.VISUAL));
         espTarget = ESP.add(new Setting.Mode("Цель", TARGETS, 2));

@@ -327,8 +327,8 @@ public final class Render3D {
     }
 
     private static void tracers(Matrix4f m, Vec3d cam, MinecraftClient mc) {
-        double dsq = ModuleManager.trDist.value * ModuleManager.trDist.value;
-        int target = ModuleManager.trTarget.index;
+        double dsq = ModuleManager.tcDist.value * ModuleManager.tcDist.value;
+        int target = ModuleManager.tcTarget.index;
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder b = tess.getBuffer();
         RenderSystem.lineWidth(1.5f);
@@ -345,10 +345,10 @@ public final class Render3D {
             if (e instanceof ItemEntity) {
                 ex = e.getX(); ey = e.getY() + 0.2; ez = e.getZ();
             } else {
-                Vec3d eye = e.getEyePos();
+                Vec3d eye = e.getPos().add(0, e.getHeight() * 0.85, 0);
                 ex = eye.x; ey = eye.y; ez = eye.z;
             }
-            int col = ModuleManager.color(ModuleManager.trColor, (count % 24) / 24f);
+            int col = ModuleManager.color(ModuleManager.tcColor, (count % 24) / 24f);
             v(b, m, 0, 0, 0, Theme.alpha(col, 170));
             v(b, m, ex - cam.x, ey - cam.y, ez - cam.z, Theme.alpha(col, 255));
             count++;
