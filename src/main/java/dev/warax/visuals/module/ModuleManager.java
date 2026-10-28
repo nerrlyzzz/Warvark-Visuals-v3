@@ -67,6 +67,20 @@ public final class ModuleManager {
     public static Setting.Num jcRadius, jcTime, hatSize, trLen, trHeight, boWidth;
     public static Setting.Bool boFill, potHide, thHead;
 
+    // --- Трассеры / ESP / Склад (новое) ---
+    public static final String[] TARGETS = {"Все", "Живые", "Игроки", "Мобы", "Животные", "Предметы"};
+    public static Module TRACERS, ESP, STORAGEESP;
+    public static Setting.Mode trTarget, trColor, espTarget, espColor, stColor;
+    public static Setting.Num trDist, espDist, stDist;
+    public static Setting.Bool espFill;
+
+    public static Module ITEMESP, POINTERS;
+    public static Setting.Mode itColor, poColor;
+    public static Setting.Num itDist, poDist;
+    public static Setting.Mode chStyle;
+
+    public static Module BIOME, YAWPTCH, REACH, LIGHTLVL, BLOCKAT, FACEAT, NEARBY, POTIONTIMERS;
+
     private static final double[] ASPECT_PRESETS = {0, 4.0 / 3.0, 5.0 / 4.0, 16.0 / 10.0, 16.0 / 9.0, 21.0 / 9.0, 1.0};
 
     private static double savedGamma = -1;
@@ -116,6 +130,7 @@ public final class ModuleManager {
         chDot = CROSSHAIR.add(new Setting.Bool("Точка в центре", false));
         chOutline = CROSSHAIR.add(new Setting.Bool("Контур", true));
         chColor = CROSSHAIR.add(new Setting.Mode("Цвет", new String[]{"Тема", "Белый", "Красный", "Зелёный", "Голубой"}, 0));
+        chStyle = CROSSHAIR.add(new Setting.Mode("Стиль", new String[]{"Крест", "Точка", "Круг"}, 0));
 
         VIEWMODEL = reg(new Module("Положение руки", "ViewModel: сдвиг и размер предметов в руках.", Category.VISUAL));
         vmX = VIEWMODEL.add(new Setting.Num("Сдвиг X", -1, 1, 0.05, 0));
@@ -187,6 +202,29 @@ public final class ModuleManager {
 
         NOBLOCKPARTICLES = reg(new Module("Без частиц блоков", "Убирает частицы при ломании блоков (+FPS).", Category.WORLD));
 
+        TRACERS = reg(new Module("Трассеры", "Линии от вашей камеры до существ и предметов.", Category.VISUAL));
+        trTarget = TRACERS.add(new Setting.Mode("Цель", TARGETS, 0));
+        trColor = TRACERS.add(new Setting.Mode("Цвет", COLORS, 0));
+        trDist = TRACERS.add(new Setting.Num("Дальность", 5, 128, 1, 64));
+
+        ESP = reg(new Module("Каркасы сущностей", "Цветная обводка вокруг существ и предметов.", Category.VISUAL));
+        espTarget = ESP.add(new Setting.Mode("Цель", TARGETS, 2));
+        espColor = ESP.add(new Setting.Mode("Цвет", COLORS, 0));
+        espDist = ESP.add(new Setting.Num("Дальность", 5, 128, 1, 64));
+        espFill = ESP.add(new Setting.Bool("Заливка", false));
+
+        STORAGEESP = reg(new Module("Склад (ESP)", "Подсвечивает сундуки, бочки, печи, диспенсеры и др.", Category.WORLD));
+        stColor = STORAGEESP.add(new Setting.Mode("Цвет", COLORS, 0));
+        stDist = STORAGEESP.add(new Setting.Num("Дальность", 5, 96, 1, 48));
+
+        ITEMESP = reg(new Module("Предметы на земле (ESP)", "Подсвечивает выброшенные предметы.", Category.WORLD));
+        itColor = ITEMESP.add(new Setting.Mode("Цвет", COLORS, 0));
+        itDist = ITEMESP.add(new Setting.Num("Дальность", 5, 96, 1, 32));
+
+        POINTERS = reg(new Module("Индикаторы целей", "Стрелки по краям экрана на ближайшие существа.", Category.HUD));
+        poColor = POINTERS.add(new Setting.Mode("Цвет", COLORS, 0));
+        poDist = POINTERS.add(new Setting.Num("Дальность", 5, 128, 1, 64));
+
         // ===== Экран =====
         NOFIRE = reg(new Module("Без огня на экране", "Убирает огонь, закрывающий обзор, когда горите.", Category.SCREEN));
         NOWATER = reg(new Module("Без воды на экране", "Убирает синий оверлей под водой.", Category.SCREEN));
@@ -225,6 +263,15 @@ public final class ModuleManager {
         COMPASS = reg(new Module("Компас", "Полоса сторон света вверху экрана.", Category.HUD));
         NOTIFY = reg(new Module("Уведомления", "Всплывающее сообщение при вкл/выкл модуля.", Category.HUD));
         NOTIFY.enabled = true;
+
+        BIOME = reg(new Module("Биом", "Показывает текущий биом.", Category.HUD));
+        YAWPTCH = reg(new Module("Углы взгляда", "Показывает yaw и pitch камеры.", Category.HUD));
+        REACH = reg(new Module("Дальность до цели", "Дистанция до блока/сущности под прицелом.", Category.HUD));
+        LIGHTLVL = reg(new Module("Освещённость", "Уровень света блока, в котором вы стоите.", Category.HUD));
+        BLOCKAT = reg(new Module("Блок под прицелом", "Название блока, на который смотрите.", Category.HUD));
+        FACEAT = reg(new Module("Сторона блока", "Сторона выбранного блока.", Category.HUD));
+        NEARBY = reg(new Module("Сущности рядом", "Счётчик существ в радиусе 32 блоков.", Category.HUD));
+        POTIONTIMERS = reg(new Module("Таймеры эффектов", "Панель активных эффектов с оставшимся временем.", Category.HUD));
 
         // ===== Секрет =====
         SecretFx.init();

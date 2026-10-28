@@ -1,0 +1,180 @@
+﻿        if (search.isEmpty()) {
+            return m.category == cat;
+        }
+        String q = search.toLowerCase(Locale.ROOT);
+        return m.name.toLowerCase(Locale.ROOT).contains(q) || m.desc.toLowerCase(Locale.ROOT).contains(q);
+    }
+
+    private List<Row> rows() {
+        List<Row> out = new ArrayList<>();
+        int y = 0;
+        for (Module m : ModuleManager.MODULES) {
+            if (!matches(m)) {
+                continue;
+            }
+            Row r = new Row();
+            r.type = T_MOD;
+            r.m = m;
+            r.y = y;
+            r.h = ROW_MOD;
+            out.add(r);
+            y += ROW_MOD;
+            if (OPEN.contains(m)) {
+                y += 2;
+                for (Setting s : m.settings) {
+                    Row sr = new Row();
+                    sr.m = m;
+                    sr.s = s;
+                    sr.type = s instanceof Setting.Bool ? T_BOOL : s instanceof Setting.Num ? T_NUM : T_MODE;
+                    sr.y = y;
+                    sr.h = ROW_SET;
+                    out.add(sr);
+                    y += ROW_SET;
+                }
+                y += 2;
+            }
+            y += GAP;
+        }
+        contentH = y;
+        return out;
+    }
+
+    private static float anim(Module m) {
+        Float f = ANIM.get(m);
+        float v = f == null ? (m.enabled ? 1f : 0f) : f;
+        v = Gfx.approach(v, m.enabled ? 1f : 0f, 0.25f);
+        ANIM.put(m, v);
+        return v;
+    }
+
+    private static float anim(Setting.Bool b) {
+        Float f = SANIM.get(b);
+        float v = f == null ? (b.value ? 1f : 0f) : f;
+        v = Gfx.approach(v, b.value ? 1f : 0f, 0.25f);
+        SANIM.put(b, v);
+        return v;
+    }
+
+    // ---------- жизненный цикл ----------
+    @Override
+    protected void init() {
+        super.init();
+        try {
+            int code = InputUtil.fromTranslationKey(WaraxVisuals.menuKey.getBoundKeyTranslationKey()).getCode();
+            opening = InputUtil.isKeyPressed(client.getWindow().getHandle(), code);
+        } catch (Exception e) {
+            opening = true;
+        }
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    @Override
+    public void removed() {
+        lastCat = cat;
+        lastScroll = scroll;
+        lastSearch = search;
+        ModuleManager.save();
+    }
+
+    // ---------- отрисовка ----------
+    @Override
+    public void render(MatrixStack ms, int mx, int my, float delta) {
+        float fade = Math.min(1f, (System.currentTimeMillis() - openTime) / 200f);
+        Blur.render(delta);
+        fill(ms, 0, 0, width, height, Theme.alpha(0xFF000000, (int) ((Blur.enabled() ? 0x40 : 0x88) * fade)));
+        fillGradient(ms, 0, 0, width, height, Theme.alpha(Theme.a1(), (int) (0x22 * fade)), Theme.alpha(Theme.hi(), (int) (0x10 * fade)));
+        int px = px(), py = py();
+
+        // тень, переливающееся свечение и стекло
+        Gfx.card(ms, px, py, px + W, py + H, 8, Theme.panel(), 0.6f + 0.4f * Gfx.wave(0f));
+        Gfx.round(ms, px, py, px + SIDE, py + H, 8, Theme.panelDark());
+        fill(ms, px + SIDE - 8, py, px + SIDE, py + H, Theme.panelDark());
+        fill(ms, px + SIDE, py + 8, px + SIDE + 1, py + H - 8, 0x18FFFFFF);
+        boolean secretView = cat == Category.SECRET && search.isEmpty();
+        if (secretView) {
+            secretBackdrop(ms, px + SIDE + 1, py + 1, px + W - 1, py + H - 1);
+        }
+
+        // логотип
+        Gfx.glow(ms, px + 12, py + 12, px + 32, py + 32, 5, Theme.grad(Gfx.wave(0f)), 3 + Gfx.glowLevel(), 0x90);
+        Gfx.round(ms, px + 12, py + 12, px + 32, py + 32, 5, Theme.grad(Gfx.wave(0f)));
+        Fonts.shadow(ms, "W", px + 22 - Fonts.width("W") / 2f, py + 18, 0xFFFFFFFF);
+        Gfx.gradText(ms, textRenderer, "Warax", px + 38, py + 13);
+        Fonts.draw(ms, "visuals • 1.16.5", px + 38, py + 23, 0xFF6E6E80);
+
+        // категории с плавающим выделением
+        Category[] cats = dev.warax.visuals.module.Secret.cats();
+        int selIdx = search.isEmpty() ? cat.ordinal() : -1;
+        if (selIdx >= 0) {
+            catAnim = catAnim < 0 ? selIdx : Gfx.approach(catAnim, selIdx, 0.3f);
+            int sy = (int) (py + 50 + catAnim * 24);
+            Gfx.glow(ms, px + 8, sy, px + SIDE - 8, sy + 20, 5, Theme.a1(), 2 + Gfx.glowLevel(), 0x60);
+            Gfx.hgrad(ms, px + 8, sy + 5, px + SIDE - 8, sy + 15, Theme.alpha(Theme.a1(), 0x30), Theme.alpha(Theme.hi(), 0x10));
+            Gfx.glass(ms, px + 8, sy, px + SIDE - 8, sy + 20, 5, Theme.alpha(Theme.a1(), 0x55));
+            Gfx.round(ms, px + 8, sy + 4, px + 10, sy + 16, 1, Theme.hi());
+        }
+        for (int i = 0; i < cats.length; i++) {
+            int by = catY(i);
+            boolean sel = i == selIdx;
+            if (!sel && Gfx.in(mx, my, px + 8, by, SIDE - 16, 20)) {
+                Gfx.round(ms, px + 8, by, px + SIDE - 8, by + 20, 5, 0x1CFFFFFF);
+            }
+            Fonts.shadow(ms, icon(cats[i]), px + 16, by + 6, sel ? Theme.hi() : 0xFF7A7A8C);
+            Fonts.shadow(ms, cats[i].title, px + 30, by + 6, sel ? 0xFFFFFFFF : 0xFFA0A0B0);
+        }
+
+        // выбор темы
+        Fonts.draw(ms, "Тема: " + Theme.NAMES[Theme.index()], px + 12, py + H - 56, 0xFF8A8A9C);
+        for (int i = 0; i < Theme.count(); i++) {
+            int tx = themeX(i), ty = themeY(i);
+            if (i == Theme.index()) {
+                Gfx.circle(ms, tx, ty, 8, 0xFFFFFFFF);
+            } else if (Gfx.in(mx, my, tx - 7, ty - 7, 14, 14)) {
+                Gfx.circle(ms, tx, ty, 8, 0x60FFFFFF);
+            }
+            Gfx.circle(ms, tx, ty, 6, Theme.a1Of(i));
+            Gfx.circle(ms, tx - 1, ty - 1, 3, Theme.hiOf(i));
+        }
+
+        // заголовок и поиск
+        String header = search.isEmpty() ? cat.title : "Поиск";
+        ms.push();
+        ms.scale(1.4f, 1.4f, 1f);
+        if (secretView) {
+            float tt = (System.currentTimeMillis() % 100000L) / 1000f;
+            float hx = cx() / 1.4f;
+            String sh = "✦ СЕКРЕТ";
+            for (int i = 0; i < sh.length(); i++) {
+                String c = String.valueOf(sh.charAt(i));
+                float k = (float) (0.5 + 0.5 * Math.sin(tt * 2.2 - i * 0.5));
+                Fonts.shadow(ms, c, hx, (py + 13) / 1.4f - (float) Math.sin(tt * 3 + i) * 0.8f, Theme.lerp(0xFFB06CFF, 0xFFFFD27A, k));
+                hx += Fonts.width(c);
+            }
+        } else {
+            Fonts.shadow(ms, header, cx() / 1.4f, (py + 13) / 1.4f, 0xFFFFFFFF);
+        }
+        ms.pop();
+        int count = 0, on = 0;
+        for (Module m : ModuleManager.MODULES) {
+            if (matches(m)) {
+                count++;
+                if (m.enabled) {
+                    on++;
+                }
+            }
+        }
+        Fonts.draw(ms, on + " / " + count + " включено", cx(), py + 28, 0xFF6E6E80);
+
+        int sx = searchX(), sy = searchY();
+        Gfx.round(ms, sx, sy, sx + SEARCH_W, sy + 18, 5, searchFocus ? Theme.alpha(Theme.a1(), 0x50) : 0x30000000);
+        if (searchFocus) {
+            Gfx.round(ms, sx, sy + 17, sx + SEARCH_W, sy + 18, 0, Theme.hi());
+        }
+        Fonts.draw(ms, "⌕", sx + 6, sy + 5, 0xFF8A8A9C);
+        String st = search.isEmpty() && !searchFocus ? "Поиск модулей..." : search;
+        boolean caret = searchFocus && (System.currentTimeMillis() / 500) % 2 == 0;
+        Fonts.draw(ms, st + (caret ? "_" : ""), sx + 16, sy + 5, search.isEmpty() && !searchFocus ? 0xFF6E6E80 : 0xFFFFFFFF);

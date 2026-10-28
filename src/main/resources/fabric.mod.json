@@ -3,7 +3,7 @@
   "id": "waraxvisuals",
   "version": "${version}",
   "name": "Warax Visuals",
-  "description": "Визуальный клиент: 47 модулей — зум, FOV, ViewModel, China Hat, круги прыжка, следы, Target HUD, эффекты, компас, уведомления и др. Меню — Правый Shift.",
+  "description": "Визуальный клиент: 60+ модулей — зум, FOV, ViewModel, China Hat, круги прыжка, следы, трассеры, ESP, склад, индикаторы целей, биом, таймеры эффектов, Target HUD, компас, уведомления и др. Меню — Правый Shift. В настройках — мини-игры Flappy Bird и Doodle Jump.",
   "authors": ["Warax"],
   "license": "MIT",
   "environment": "client",

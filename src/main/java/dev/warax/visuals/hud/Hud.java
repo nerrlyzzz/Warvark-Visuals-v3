@@ -14,6 +14,10 @@ import net.minecraft.client.util.math.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.client.render.Camera;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
@@ -22,6 +26,10 @@ import net.minecraft.item.Items;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
 import org.lwjgl.glfw.GLFW;
 
 import java.time.LocalTime;
@@ -65,6 +73,9 @@ public final class Hud {
                 && mc.options.getPerspective().isFirstPerson()) {
             crosshair(ms, sw / 2, sh / 2);
         }
+        if (ModuleManager.POINTERS.isActive() && mc.currentScreen == null) {
+            targetPointers(ms, mc, sw, sh);
+        }
         if (mc.options.debugEnabled) {
             return;
         }
@@ -100,6 +111,41 @@ public final class Hud {
         }
         if (ModuleManager.SESSION.isActive()) {
             lines.add("Сессия: " + session());
+        }
+        if (ModuleManager.BIOME.isActive()) {
+            lines.add("Биом: " + biomeName(mc));
+        }
+        if (ModuleManager.YAWPTCH.isActive()) {
+            lines.add(String.format(Locale.ROOT, "Углы: %d° %d°",
+                    Math.round(mc.player.getYaw()), Math.round(mc.player.getPitch())));
+        }
+        if (ModuleManager.REACH.isActive()) {
+            double r = reach(mc);
+            lines.add(r >= 0 ? String.format(Locale.ROOT, "Дальность: %.1f", r) : "Дальность: —");
+        }
+        if (ModuleManager.LIGHTLVL.isActive()) {
+            BlockPos lp = new BlockPos(mc.player.getX(), mc.player.getY() + 0.5, mc.player.getZ());
+            lines.add("Свет: " + mc.world.getBlockState(lp).getLuminance());
+        }
+        if (ModuleManager.BLOCKAT.isActive()) {
+            String b = "—";
+            HitResult hr = mc.crosshairTarget;
+            if (hr != null && hr.getType() == HitResult.Type.BLOCK) {
+                BlockPos bp = ((BlockHitResult) hr).getBlockPos();
+                b = mc.world.getBlockState(bp).getBlock().getName().getString();
+            }
+            lines.add("Блок: " + b);
+        }
+        if (ModuleManager.FACEAT.isActive()) {
+            String f = "—";
+            HitResult hr = mc.crosshairTarget;
+            if (hr instanceof BlockHitResult) {
+                f = faceName(((BlockHitResult) hr).getSide());
+            }
+            lines.add("Сторона: " + f);
+        }
+        if (ModuleManager.NEARBY.isActive()) {
+            lines.add("Сущности рядом: " + nearby(mc, 32));
         }
         if (!lines.isEmpty()) {
             infoCard(ms, 4, y, lines);
@@ -144,6 +190,9 @@ public final class Hud {
         }
         if (ModuleManager.POTIONS.isActive()) {
             potions(ms, tr, mc, sw, ry + 4);
+        }
+        if (ModuleManager.POTIONTIMERS.isActive()) {
+            potionTimers(ms, tr, mc, sw, sh);
         }
         if (ModuleManager.COMPASS.isActive()) {
             compass(ms, tr, mc, sw / 2, topY);
@@ -546,6 +595,26 @@ public final class Hud {
         boolean outline = ModuleManager.chOutline.value;
         int out = 0xFF000000;
 
+        int style = ModuleManager.chStyle == null ? 0 : ModuleManager.chStyle.index;
+        if (style == 1) { // точка
+            int r = Math.max(2, size);
+            if (outline) {
+                Gfx.circle(ms, cx, cy, r + 2, out);
+            }
+            Gfx.circle(ms, cx, cy, r, color);
+            return;
+        }
+        if (style == 2) { // круг
+            int r = Math.max(4, size + 2);
+            if (outline) {
+                Gfx.circle(ms, cx, cy, r + 2, out);
+            }
+            Gfx.circle(ms, cx, cy, r, color);
+            Gfx.circle(ms, cx, cy, Math.max(2, r - 3), out);
+            Gfx.circle(ms, cx, cy, Math.max(1, r - 4), Theme.panelDark());
+            return;
+        }
+
         // левая, правая, верхняя, нижняя перекладины
         int[][] bars = {
                 {cx - gap - size, cy - lo, cx - gap, cy - lo + t},
@@ -582,5 +651,151 @@ public final class Hud {
             default:
                 return Theme.hi();
         }
+    }
+
+    /** Указатели по краям экрана на ближайшие существа/предметы. */
+    private static void targetPointers(MatrixStack ms, MinecraftClient mc, int sw, int sh) {
+        Camera cam = mc.gameRenderer.getCamera();
+        Vec3d cp = cam.getPos();
+        double maxSq = ModuleManager.poDist.value * ModuleManager.poDist.value;
+        double yaw = Math.toRadians(cam.getYaw());
+        double pitch = Math.toRadians(cam.getPitch());
+        float fovY = (float) mc.options.fov;
+        if (fovY < 20f) {
+            fovY = 70f;
+        }
+        double tanHalf = Math.tan(Math.toRadians(fovY) / 2.0);
+        double ky = (sh / 2.0) / tanHalf;
+        double kx = (sw / 2.0) / (tanHalf * (sw / (float) sh));
+        double lim = Math.PI / 2 * 1.05;
+        for (Entity e : mc.world.getEntities()) {
+            if (e == mc.player) {
+                continue;
+            }
+            if (!(e instanceof LivingEntity) && !(e instanceof ItemEntity)) {
+                continue;
+            }
+            double dx = e.getX() - cp.x, dy = e.getY() + e.getHeight() * 0.5 - cp.y, dz = e.getZ() - cp.z;
+            double d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > maxSq || d2 < 0.01) {
+                continue;
+            }
+            double hOff = wrapPi(Math.atan2(dx, dz) - yaw);
+            double horiz = Math.sqrt(dx * dx + dz * dz);
+            double vOff = Math.atan2(dy, horiz) + pitch;
+            if (Math.abs(hOff) > lim || Math.abs(vOff) > lim) {
+                continue;
+            }
+            double sx = sw / 2.0 + Math.tan(hOff) * kx;
+            double sy = sh / 2.0 - Math.tan(vOff) * ky;
+            if (sx < 1 || sx > sw - 1 || sy < 1 || sy > sh - 1) {
+                continue;
+            }
+            int col = ModuleManager.color(ModuleManager.poColor, (float) ((hOff + Math.PI) / (2 * Math.PI)));
+            Gfx.circle(ms, (int) sx, (int) sy, 2, 0xFF000000);
+            Gfx.circle(ms, (int) sx, (int) sy, 1, col);
+        }
+    }
+
+    private static double wrapPi(double a) {
+        while (a > Math.PI) {
+            a -= 2 * Math.PI;
+        }
+        while (a < -Math.PI) {
+            a += 2 * Math.PI;
+        }
+        return a;
+    }
+
+    private static String biomeName(MinecraftClient mc) {
+        if (mc.world == null || mc.player == null) {
+            return "—";
+        }
+        BlockPos pos = new BlockPos(mc.player.getX(), mc.player.getY() + 0.5, mc.player.getZ());
+        try {
+            Identifier id = mc.world.getRegistryManager().get(net.minecraft.util.registry.Registry.BIOME_KEY)
+                    .getId(mc.world.getBiome(pos));
+            return id == null ? "?" : id.toString();
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
+    private static double reach(MinecraftClient mc) {
+        HitResult hr = mc.crosshairTarget;
+        if (hr == null) {
+            return -1;
+        }
+        if (hr.getType() == HitResult.Type.ENTITY && hr instanceof EntityHitResult) {
+            Entity e = ((EntityHitResult) hr).getEntity();
+            return Math.sqrt(mc.player.squaredDistanceTo(e));
+        }
+        if (hr.getType() == HitResult.Type.BLOCK) {
+            Vec3d p = hr.getPos();
+            return Math.sqrt(mc.player.squaredDistanceTo(p));
+        }
+        return -1;
+    }
+
+    private static int nearby(MinecraftClient mc, double dist) {
+        if (mc.world == null) {
+            return 0;
+        }
+        double sq = dist * dist;
+        int n = 0;
+        for (Entity e : mc.world.getEntities()) {
+            if (e != mc.player && e.squaredDistanceTo(mc.player) <= sq) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    private static String faceName(Direction d) {
+        switch (d) {
+            case UP:
+                return "верх";
+            case DOWN:
+                return "низ";
+            case NORTH:
+                return "север";
+            case SOUTH:
+                return "юг";
+            case WEST:
+                return "запад";
+            default:
+                return "восток";
+        }
+    }
+
+    private static void potionTimers(MatrixStack ms, TextRenderer tr, MinecraftClient mc, int sw, int sh) {
+        if (mc.player == null || mc.world == null) {
+            return;
+        }
+        java.util.Collection<StatusEffectInstance> effs = mc.player.getStatusEffects();
+        if (effs.isEmpty()) {
+            return;
+        }
+        int w = 0;
+        for (StatusEffectInstance i : effs) {
+            String t = i.getEffectType().getName().getString() + " " + secs(i);
+            w = Math.max(w, Fonts.width(t) + 26);
+        }
+        int h = effs.size() * 12 + 8;
+        int x = sw - w - 8, y = sh - h - 26;
+        Gfx.glass(ms, x, y, x + w, y + h, 4, Theme.alpha(Theme.panelDark(), Gfx.glassOn() ? 0x98 : 0xC8));
+        int yy = y + 5;
+        for (StatusEffectInstance i : effs) {
+            float frac = Math.min(1f, i.getDuration() / 600f);
+            String t = i.getEffectType().getName().getString() + " " + secs(i);
+            Gfx.rect(ms, x + 4, yy + 1, x + 6, yy + 9, 0xFF222233);
+            Gfx.rect(ms, x + 4, yy + 9 - (int) (8 * frac), x + 6, yy + 9, Theme.hi());
+            Fonts.shadow(ms, t, x + 10, yy, 0xFFFFFFFF);
+            yy += 12;
+        }
+    }
+
+    private static String secs(StatusEffectInstance i) {
+        return ((i.getDuration() + 19) / 20) + "с";
     }
 }

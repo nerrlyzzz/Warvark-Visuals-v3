@@ -12,6 +12,12 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
@@ -78,6 +84,8 @@ public final class Render3D {
         }
         boolean any = ModuleManager.JUMPCIRCLES.isActive() || ModuleManager.TRAILS.isActive()
                 || ModuleManager.CHINAHAT.isActive() || ModuleManager.BLOCKOUTLINE.isActive()
+                || ModuleManager.TRACERS.isActive() || ModuleManager.ESP.isActive()
+                || ModuleManager.STORAGEESP.isActive() || ModuleManager.ITEMESP.isActive()
                 || Particles3D.hasAny();
         if (!any) {
             return;
@@ -106,6 +114,18 @@ public final class Render3D {
             }
             if (ModuleManager.BLOCKOUTLINE.isActive() && !mc.options.hudHidden) {
                 outline(mc, m, cam);
+            }
+            if (ModuleManager.TRACERS.isActive()) {
+                tracers(m, cam, mc);
+            }
+            if (ModuleManager.ESP.isActive()) {
+                entityEsp(m, cam, mc);
+            }
+            if (ModuleManager.STORAGEESP.isActive()) {
+                storageEsp(m, cam, mc);
+            }
+            if (ModuleManager.ITEMESP.isActive()) {
+                itemEsp(m, cam, mc);
             }
             Particles3D.render(m, cam, mc.gameRenderer.getCamera());
         } finally {
@@ -285,6 +305,170 @@ public final class Render3D {
         line(b, m, x2, y1, z2, x2, y2, z2, lo, hi);
         line(b, m, x1, y1, z2, x1, y2, z2, lo, hi);
         tess.draw();
+    }
+
+    // ---------- трассеры / ESP / склад ----------
+
+    private static boolean targetKind(Entity e, int t) {
+        switch (t) {
+            case 1:
+                return e instanceof LivingEntity;
+            case 2:
+                return e instanceof PlayerEntity;
+            case 3:
+                return e instanceof LivingEntity && !(e instanceof PlayerEntity) && !(e instanceof AnimalEntity);
+            case 4:
+                return e instanceof AnimalEntity;
+            case 5:
+                return e instanceof ItemEntity;
+            default:
+                return true;
+        }
+    }
+
+    private static void tracers(Matrix4f m, Vec3d cam, MinecraftClient mc) {
+        double dsq = ModuleManager.trDist.value * ModuleManager.trDist.value;
+        int target = ModuleManager.trTarget.index;
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder b = tess.getBuffer();
+        RenderSystem.lineWidth(1.5f);
+        b.begin(GL11.GL_LINES, VertexFormats.POSITION_COLOR);
+        int count = 0;
+        for (Entity e : mc.world.getEntities()) {
+            if (e == mc.player || !targetKind(e, target)) {
+                continue;
+            }
+            if (e.squaredDistanceTo(cam) > dsq) {
+                continue;
+            }
+            double ex, ey, ez;
+            if (e instanceof ItemEntity) {
+                ex = e.getX(); ey = e.getY() + 0.2; ez = e.getZ();
+            } else {
+                Vec3d eye = e.getEyePos();
+                ex = eye.x; ey = eye.y; ez = eye.z;
+            }
+            int col = ModuleManager.color(ModuleManager.trColor, (count % 24) / 24f);
+            v(b, m, 0, 0, 0, Theme.alpha(col, 170));
+            v(b, m, ex - cam.x, ey - cam.y, ez - cam.z, Theme.alpha(col, 255));
+            count++;
+        }
+        tess.draw();
+    }
+
+    private static void entityEsp(Matrix4f m, Vec3d cam, MinecraftClient mc) {
+        double dsq = ModuleManager.espDist.value * ModuleManager.espDist.value;
+        int target = ModuleManager.espTarget.index;
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder b = tess.getBuffer();
+        int count = 0;
+        for (Entity e : mc.world.getEntities()) {
+            if (e == mc.player || !targetKind(e, target)) {
+                continue;
+            }
+            if (e.squaredDistanceTo(cam) > dsq) {
+                continue;
+            }
+            Box bx = e.getBoundingBox();
+            double x1 = bx.minX - cam.x, y1 = bx.minY - cam.y, z1 = bx.minZ - cam.z;
+            double x2 = bx.maxX - cam.x, y2 = bx.maxY - cam.y, z2 = bx.maxZ - cam.z;
+            float k = (count % 24) / 24f;
+            int c1 = ModuleManager.color(ModuleManager.espColor, k);
+            int c2 = ModuleManager.color(ModuleManager.espColor, 1f - k);
+            if (ModuleManager.espFill.value) {
+                b.begin(GL11.GL_QUADS, VertexFormats.POSITION_COLOR);
+                boxFill(b, m, x1, y1, z1, x2, y2, z2, c1, c2);
+                tess.draw();
+            }
+            RenderSystem.lineWidth(1.5f);
+            b.begin(GL11.GL_LINES, VertexFormats.POSITION_COLOR);
+            boxEdges(b, m, x1, y1, z1, x2, y2, z2, c1, c2);
+            tess.draw();
+            count++;
+        }
+    }
+
+    private static void storageEsp(Matrix4f m, Vec3d cam, MinecraftClient mc) {
+        double dsq = ModuleManager.stDist.value * ModuleManager.stDist.value;
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder b = tess.getBuffer();
+        int count = 0;
+        for (BlockEntity be : mc.world.getBlockEntities().values()) {
+            if (!(be instanceof Inventory)) {
+                continue;
+            }
+            BlockPos bp = be.getPos();
+            Vec3d cp = new Vec3d(bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5);
+            if (cp.squaredDistanceTo(cam) > dsq) {
+                continue;
+            }
+            double x1 = bp.getX() - cam.x, y1 = bp.getY() - cam.y, z1 = bp.getZ() - cam.z;
+            double x2 = x1 + 1, y2 = y1 + 1, z2 = z1 + 1;
+            float k = (count % 24) / 24f;
+            int c1 = ModuleManager.color(ModuleManager.stColor, k);
+            int c2 = ModuleManager.color(ModuleManager.stColor, 1f - k);
+            RenderSystem.lineWidth(1.5f);
+            b.begin(GL11.GL_LINES, VertexFormats.POSITION_COLOR);
+            boxEdges(b, m, x1 + 0.01, y1 + 0.01, z1 + 0.01, x2 - 0.01, y2 - 0.01, z2 - 0.01, c1, c2);
+            tess.draw();
+            count++;
+        }
+    }
+
+    private static void itemEsp(Matrix4f m, Vec3d cam, MinecraftClient mc) {
+        double dsq = ModuleManager.itDist.value * ModuleManager.itDist.value;
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder b = tess.getBuffer();
+        int count = 0;
+        for (Entity e : mc.world.getEntities()) {
+            if (!(e instanceof ItemEntity)) {
+                continue;
+            }
+            if (e.squaredDistanceTo(cam) > dsq) {
+                continue;
+            }
+            Box bx = e.getBoundingBox();
+            double x1 = bx.minX - cam.x, y1 = bx.minY - cam.y, z1 = bx.minZ - cam.z;
+            double x2 = bx.maxX - cam.x, y2 = bx.maxY - cam.y, z2 = bx.maxZ - cam.z;
+            float k = (count % 20) / 20f;
+            int c1 = ModuleManager.color(ModuleManager.itColor, k);
+            int c2 = ModuleManager.color(ModuleManager.itColor, 1f - k);
+            RenderSystem.lineWidth(1.7f);
+            b.begin(GL11.GL_LINES, VertexFormats.POSITION_COLOR);
+            boxEdges(b, m, x1, y1, z1, x2, y2, z2, c1, c2);
+            tess.draw();
+            count++;
+        }
+    }
+
+    private static void boxEdges(BufferBuilder b, Matrix4f m, double x1, double y1, double z1,
+                                 double x2, double y2, double z2, int cLo, int cHi) {
+        line(b, m, x1, y1, z1, x2, y1, z1, cLo, cLo);
+        line(b, m, x2, y1, z1, x2, y1, z2, cLo, cLo);
+        line(b, m, x2, y1, z2, x1, y1, z2, cLo, cLo);
+        line(b, m, x1, y1, z2, x1, y1, z1, cLo, cLo);
+        line(b, m, x1, y2, z1, x2, y2, z1, cHi, cHi);
+        line(b, m, x2, y2, z1, x2, y2, z2, cHi, cHi);
+        line(b, m, x2, y2, z2, x1, y2, z2, cHi, cHi);
+        line(b, m, x1, y2, z2, x1, y2, z1, cHi, cHi);
+        line(b, m, x1, y1, z1, x1, y2, z1, cLo, cHi);
+        line(b, m, x2, y1, z1, x2, y2, z1, cLo, cHi);
+        line(b, m, x2, y1, z2, x2, y2, z2, cLo, cHi);
+        line(b, m, x1, y1, z2, x1, y2, z2, cLo, cHi);
+    }
+
+    private static void boxFill(BufferBuilder b, Matrix4f m, double x1, double y1, double z1,
+                                double x2, double y2, double z2, int cLo, int cHi) {
+        int f1 = Theme.alpha(cLo, 0x26), f2 = Theme.alpha(cHi, 0x26);
+        // низ
+        v(b, m, x1, y1, z1, f1); v(b, m, x2, y1, z1, f1); v(b, m, x2, y1, z2, f1); v(b, m, x1, y1, z2, f1);
+        // верх
+        v(b, m, x1, y2, z1, f2); v(b, m, x1, y2, z2, f2); v(b, m, x2, y2, z2, f2); v(b, m, x2, y2, z1, f2);
+        // бока
+        v(b, m, x1, y1, z1, f1); v(b, m, x1, y2, z1, f2); v(b, m, x2, y2, z1, f2); v(b, m, x2, y1, z1, f1);
+        v(b, m, x1, y1, z2, f1); v(b, m, x2, y1, z2, f1); v(b, m, x2, y2, z2, f2); v(b, m, x1, y2, z2, f2);
+        v(b, m, x1, y1, z1, f1); v(b, m, x1, y1, z2, f1); v(b, m, x1, y2, z2, f2); v(b, m, x1, y2, z1, f2);
+        v(b, m, x2, y1, z1, f1); v(b, m, x2, y2, z1, f2); v(b, m, x2, y2, z2, f2); v(b, m, x2, y1, z2, f1);
     }
 
     // ---------- утилиты ----------

@@ -1,0 +1,135 @@
+﻿            }
+        }
+        if (!Gfx.in(mx, my, cx(), cy(), cw(), ch())) {
+            return super.mouseClicked(mx, my, button);
+        }
+        for (Row r : rows()) {
+            int ry = cy() + r.y - (int) scrollShown;
+            if (my < ry || my >= ry + r.h) {
+                continue;
+            }
+            if (r.type == T_MOD) {
+                int bx = bindX();
+                boolean onBind = !r.m.alwaysOn && mx >= bx && mx < bx + 40;
+                boolean onPlus = !r.m.settings.isEmpty() && mx >= bx - 16 && mx < bx;
+                if (onBind) {
+                    if (button == 0) {
+                        listening = r.m;
+                    } else if (button == 1) {
+                        r.m.key = -1;
+                    }
+                } else if (button == 1 || (button == 0 && (onPlus || r.m.alwaysOn))) {
+                    if (!r.m.settings.isEmpty() && !OPEN.remove(r.m)) {
+                        OPEN.add(r.m);
+                    }
+                } else if (button == 0) {
+                    r.m.toggle();
+                }
+            } else if (r.type == T_BOOL && button == 0) {
+                Setting.Bool b = (Setting.Bool) r.s;
+                b.value = !b.value;
+            } else if (r.type == T_MODE) {
+                Setting.Mode md = (Setting.Mode) r.s;
+                if (button == 0) {
+                    md.next();
+                } else if (button == 1) {
+                    md.prev();
+                }
+            } else if (r.type == T_NUM && button == 0) {
+                dragging = (Setting.Num) r.s;
+                applyDrag(mx);
+            }
+            return true;
+        }
+        return true;
+    }
+
+    private void applyDrag(double mx) {
+        if (dragging == null) {
+            return;
+        }
+        double t = Math.max(0, Math.min(1, (mx - trackX()) / 100.0));
+        dragging.set(dragging.min + t * (dragging.max - dragging.min));
+    }
+
+    @Override
+    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (dragging != null) {
+            applyDrag(mx);
+            return true;
+        }
+        return super.mouseDragged(mx, my, button, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(double mx, double my, int button) {
+        if (dragging != null) {
+            dragging = null;
+            ModuleManager.save();
+        }
+        return super.mouseReleased(mx, my, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double amount) {
+        scroll -= amount * 24;
+        return true;
+    }
+
+    @Override
+    public boolean charTyped(char chr, int modifiers) {
+        if (searchFocus && listening == null) {
+            if (!Character.isISOControl(chr) && search.length() < 24) {
+                search += chr;
+                scroll = 0;
+            }
+            return true;
+        }
+        return super.charTyped(chr, modifiers);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (listening != null) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                // отмена
+            } else if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
+                listening.key = -1;
+            } else {
+                listening.key = keyCode;
+            }
+            listening = null;
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_F && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0) {
+            searchFocus = true;
+            return true;
+        }
+        if (searchFocus) {
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                if (!search.isEmpty()) {
+                    search = search.substring(0, search.length() - 1);
+                }
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_ENTER) {
+                searchFocus = false;
+                return true;
+            }
+            return true;
+        }
+        if (!opening && WaraxVisuals.menuKey.matchesKey(keyCode, scanCode)) {
+            onClose();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+        if (WaraxVisuals.menuKey.matchesKey(keyCode, scanCode)) {
+            opening = false;
+        }
+        return super.keyReleased(keyCode, scanCode, modifiers);
+    }
+}

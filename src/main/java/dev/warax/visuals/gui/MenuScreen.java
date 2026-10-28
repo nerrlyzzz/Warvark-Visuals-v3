@@ -226,25 +226,24 @@ public class MenuScreen extends Screen {
         Gfx.gradText(ms, textRenderer, "Warax", px + 38, py + 13);
         Fonts.draw(ms, "visuals • 1.16.5", px + 38, py + 23, 0xFF6E6E80);
 
-        // категории с плавающим выделением
+        // категории с плавающим выделением (пилюли, как в Celestial)
         Category[] cats = dev.warax.visuals.module.Secret.cats();
         int selIdx = search.isEmpty() ? cat.ordinal() : -1;
         if (selIdx >= 0) {
-            catAnim = catAnim < 0 ? selIdx : Gfx.approach(catAnim, selIdx, 0.3f);
-            int sy = (int) (py + 50 + catAnim * 24);
-            Gfx.glow(ms, px + 8, sy, px + SIDE - 8, sy + 20, 5, Theme.a1(), 2 + Gfx.glowLevel(), 0x60);
-            Gfx.hgrad(ms, px + 8, sy + 5, px + SIDE - 8, sy + 15, Theme.alpha(Theme.a1(), 0x30), Theme.alpha(Theme.hi(), 0x10));
-            Gfx.glass(ms, px + 8, sy, px + SIDE - 8, sy + 20, 5, Theme.alpha(Theme.a1(), 0x55));
-            Gfx.round(ms, px + 8, sy + 4, px + 10, sy + 16, 1, Theme.hi());
+            catAnim = catAnim < 0 ? selIdx : Gfx.approach(catAnim, selIdx, 0.32f);
+            int sy = py + 50 + (int) (catAnim * 24);
+            Gfx.glow(ms, px + 6, sy, px + SIDE - 6, sy + 20, 6, Theme.a1(), 2 + Gfx.glowLevel(), 0x70);
+            Gfx.round(ms, px + 6, sy, px + SIDE - 6, sy + 20, 10, Theme.grad(Gfx.wave(0)));
+            Gfx.hgrad(ms, px + 8, sy + 2, px + SIDE - 8, sy + 18, Theme.alpha(Theme.hi(), 0xE0), Theme.alpha(Theme.a1(), 0xE0));
         }
         for (int i = 0; i < cats.length; i++) {
             int by = catY(i);
             boolean sel = i == selIdx;
-            if (!sel && Gfx.in(mx, my, px + 8, by, SIDE - 16, 20)) {
-                Gfx.round(ms, px + 8, by, px + SIDE - 8, by + 20, 5, 0x1CFFFFFF);
+            if (!sel && Gfx.in(mx, my, px + 6, by, SIDE - 12, 20)) {
+                Gfx.round(ms, px + 6, by, px + SIDE - 6, by + 20, 10, 0x1CFFFFFF);
             }
-            Fonts.shadow(ms, icon(cats[i]), px + 16, by + 6, sel ? Theme.hi() : 0xFF7A7A8C);
-            Fonts.shadow(ms, cats[i].title, px + 30, by + 6, sel ? 0xFFFFFFFF : 0xFFA0A0B0);
+            Fonts.shadow(ms, icon(cats[i]), px + 14, by + 6, sel ? 0xFFFFFFFF : 0xFF7A7A8C);
+            Fonts.shadow(ms, cats[i].title, px + 28, by + 6, sel ? 0xFFFFFFFF : 0xFFA0A0B0);
         }
 
         // выбор темы
@@ -287,7 +286,11 @@ public class MenuScreen extends Screen {
                 }
             }
         }
-        Fonts.draw(ms, on + " / " + count + " включено", cx(), py + 28, 0xFF6E6E80);
+        String ctl = on + " / " + count + " вкл";
+        int cwl = Fonts.width(ctl) + 16;
+        Gfx.round(ms, cx(), py + 22, cx() + cwl, py + 34, 7, 0x26000000);
+        Gfx.round(ms, cx(), py + 22, cx() + 3, py + 34, 7, Theme.hi());
+        Fonts.draw(ms, ctl, cx() + 9, py + 25, 0xFFC8C8D4);
 
         int sx = searchX(), sy = searchY();
         Gfx.round(ms, sx, sy, sx + SEARCH_W, sy + 18, 5, searchFocus ? Theme.alpha(Theme.a1(), 0x50) : 0x30000000);
@@ -310,9 +313,13 @@ public class MenuScreen extends Screen {
             scrollShown = scroll;
         }
         scissor(cx() - 2, cy(), cw() + 4, ch());
+        int idx = 0;
         for (Row r : rows) {
-            int ry = cy() + r.y - (int) scrollShown;
-            if (ry + r.h < cy() || ry > cy() + ch()) {
+            float ent = Math.min(1f, (System.currentTimeMillis() - openTime - idx * 20L) / 320f);
+            ent = 1f - (1f - ent) * (1f - ent);
+            int ry = cy() + r.y - (int) scrollShown + (int) ((1f - ent) * 16);
+            idx++;
+            if (ent <= 0f || ry + r.h < cy() || ry > cy() + ch()) {
                 continue;
             }
             boolean hov = Gfx.in(mx, my, cx(), Math.max(ry, cy()), cw(), Math.min(ry + r.h, cy() + ch()) - Math.max(ry, cy()));
@@ -415,18 +422,23 @@ public class MenuScreen extends Screen {
                 Gfx.glow(ms, cx, ry, cx + cw, ry + ROW_MOD, 6, Theme.a1(), 2, (int) (0x40 * a));
             }
             Gfx.glass(ms, cx, ry, cx + cw, ry + ROW_MOD, 6, bg);
-            if (a > 0.02f) {
-                Gfx.round(ms, cx, ry + 6, cx + 2, ry + ROW_MOD - 6, 1, Theme.alpha(Theme.hi(), (int) (255 * a)));
+            if (hov && a <= 0.05f) {
+                Gfx.glow(ms, cx, ry, cx + cw, ry + ROW_MOD, 6, Theme.a1(), 3, 0x30);
             }
-            Fonts.shadow(ms, m.name, cx + 10, ry + 5, Theme.lerp(0xFFE4E4EC, Theme.hi(), a));
+            if (a > 0.02f) {
+                int pulse = (int) (0xA0 + 0xA0 * (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 500.0)));
+                Gfx.glow(ms, cx + 4, ry + ROW_MOD / 2 - 4, cx + 12, ry + ROW_MOD / 2 + 4, 4, Theme.hi(), 3, (int) (0x60 * a));
+                Gfx.circle(ms, cx + 8, ry + ROW_MOD / 2, 3, Theme.alpha(Theme.hi(), pulse));
+            }
+            Fonts.shadow(ms, m.name, cx + 18, ry + 5, Theme.lerp(0xFFE4E4EC, Theme.hi(), a));
             ms.push();
             ms.scale(0.75f, 0.75f, 1f);
             String d = search.isEmpty() ? m.desc : m.category.title + " • " + m.desc;
-            int maxW = (int) ((bindX() - 18 - cx - 10) / 0.75f);
+            int maxW = (int) ((bindX() - 18 - cx - 18) / 0.75f);
             if (Fonts.width(d) > maxW) {
                 d = Fonts.trim(d, maxW - Fonts.width("...")) + "...";
             }
-            Fonts.draw(ms, d, (cx + 10) / 0.75f, (ry + 17) / 0.75f, 0xFF8C8C9A);
+            Fonts.draw(ms, d, (cx + 18) / 0.75f, (ry + 17) / 0.75f, 0xFF8C8C9A);
             ms.pop();
 
             if (m.alwaysOn) {
@@ -507,7 +519,7 @@ public class MenuScreen extends Screen {
 
         Category[] cats = dev.warax.visuals.module.Secret.cats();
         for (int i = 0; i < cats.length; i++) {
-            if (Gfx.in(mx, my, px + 8, catY(i), SIDE - 16, 20)) {
+            if (Gfx.in(mx, my, px + 6, catY(i), SIDE - 12, 20)) {
                 cat = cats[i];
                 search = "";
                 scroll = 0;

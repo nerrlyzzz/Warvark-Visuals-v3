@@ -8,11 +8,11 @@ public final class Theme {
     public static final String[] NAMES = {
             "Фиолет–розовый", "Зелёный–чёрный", "Красный–чёрный", "Синий–голубой", "Оранж–красный",
             "Бирюза–фиолет", "Золото–бронза", "Розово–персик", "Лайм–циан", "Индиго–пурпур",
-            "Мята–небо", "Снежная"
+            "Мята–небо", "Снежная", "Неон-синий", "Роза-неон", "Шоколад"
     };
     // основной цвет и яркий цвет; градиент идёт от яркого к основному
-    private static final int[] A1 = {0x7c5cff, 0x12b34d, 0xe5303a, 0x2563ff, 0xff8a1f, 0x00c9a7, 0xd97706, 0xffb347, 0x00d4ff, 0x9333ea, 0x10b981, 0x94a3b8};
-    private static final int[] HI = {0xff4fd8, 0x2bff7e, 0xff5560, 0x4dd8ff, 0xff9a4d, 0x2cf0d0, 0xfcd34d, 0xff7fb5, 0xc6ff5c, 0xa78bfa, 0x7dd3fc, 0xffffff};
+    private static final int[] A1 = {0x7c5cff, 0x12b34d, 0xe5303a, 0x2563ff, 0xff8a1f, 0x00c9a7, 0xd97706, 0xffb347, 0x00d4ff, 0x9333ea, 0x10b981, 0x94a3b8, 0x0ea5ff, 0xff2f92, 0x8d5a2b};
+    private static final int[] HI = {0xff4fd8, 0x2bff7e, 0xff5560, 0x4dd8ff, 0xff9a4d, 0x2cf0d0, 0xfcd34d, 0xff7fb5, 0xc6ff5c, 0xa78bfa, 0x7dd3fc, 0xffffff, 0x7dd3fc, 0xff66c4, 0xd9a066};
 
     private Theme() {
     }

@@ -143,6 +143,8 @@ public class WaraxOptionsScreen extends WaraxBaseScreen {
         w.add(slider("Свечение", 0, 5, 1, () -> ModuleManager.glowPower.value, v -> ModuleManager.glowPower.value = v, v -> String.valueOf((int) v)));
         w.add(slider("Тема", 0, Theme.count() - 1, 1, () -> Theme.index(), v -> Theme.set((int) v), v -> Theme.NAMES[Math.max(0, Math.min(Theme.count() - 1, (int) v))]));
         w.add(action("Меню функций (ClickGUI)", "Открыть", () -> client.openScreen(new MenuScreen())));
+        w.add(action("Mini-игра: Flappy Bird", "Играть", () -> client.openScreen(new FlappyBird())));
+        w.add(action("Mini-игра: Doodle Jump", "Играть", () -> client.openScreen(new DoodleJump())));
         rows.add(w);
     }
 

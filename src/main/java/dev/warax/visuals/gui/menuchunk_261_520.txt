@@ -1,0 +1,260 @@
+﻿        }
+
+        // заголовок и поиск
+        String header = search.isEmpty() ? cat.title : "Поиск";
+        ms.push();
+        ms.scale(1.4f, 1.4f, 1f);
+        if (secretView) {
+            float tt = (System.currentTimeMillis() % 100000L) / 1000f;
+            float hx = cx() / 1.4f;
+            String sh = "✦ СЕКРЕТ";
+            for (int i = 0; i < sh.length(); i++) {
+                String c = String.valueOf(sh.charAt(i));
+                float k = (float) (0.5 + 0.5 * Math.sin(tt * 2.2 - i * 0.5));
+                Fonts.shadow(ms, c, hx, (py + 13) / 1.4f - (float) Math.sin(tt * 3 + i) * 0.8f, Theme.lerp(0xFFB06CFF, 0xFFFFD27A, k));
+                hx += Fonts.width(c);
+            }
+        } else {
+            Fonts.shadow(ms, header, cx() / 1.4f, (py + 13) / 1.4f, 0xFFFFFFFF);
+        }
+        ms.pop();
+        int count = 0, on = 0;
+        for (Module m : ModuleManager.MODULES) {
+            if (matches(m)) {
+                count++;
+                if (m.enabled) {
+                    on++;
+                }
+            }
+        }
+        Fonts.draw(ms, on + " / " + count + " включено", cx(), py + 28, 0xFF6E6E80);
+
+        int sx = searchX(), sy = searchY();
+        Gfx.round(ms, sx, sy, sx + SEARCH_W, sy + 18, 5, searchFocus ? Theme.alpha(Theme.a1(), 0x50) : 0x30000000);
+        if (searchFocus) {
+            Gfx.round(ms, sx, sy + 17, sx + SEARCH_W, sy + 18, 0, Theme.hi());
+        }
+        Fonts.draw(ms, "⌕", sx + 6, sy + 5, 0xFF8A8A9C);
+        String st = search.isEmpty() && !searchFocus ? "Поиск модулей..." : search;
+        boolean caret = searchFocus && (System.currentTimeMillis() / 500) % 2 == 0;
+        Fonts.draw(ms, st + (caret ? "_" : ""), sx + 16, sy + 5, search.isEmpty() && !searchFocus ? 0xFF6E6E80 : 0xFFFFFFFF);
+
+        Gfx.hgrad(ms, cx(), py + TOP, cx() + cw(), py + TOP + 1, Theme.hi(), Theme.alpha(Theme.a1(), 0x00));
+
+        // список с плавной прокруткой
+        List<Row> rows = rows();
+        int maxScroll = Math.max(0, contentH - ch());
+        scroll = Math.max(0, Math.min(maxScroll, scroll));
+        scrollShown = scrollShown + (scroll - scrollShown) * 0.35;
+        if (Math.abs(scroll - scrollShown) < 0.5) {
+            scrollShown = scroll;
+        }
+        scissor(cx() - 2, cy(), cw() + 4, ch());
+        for (Row r : rows) {
+            int ry = cy() + r.y - (int) scrollShown;
+            if (ry + r.h < cy() || ry > cy() + ch()) {
+                continue;
+            }
+            boolean hov = Gfx.in(mx, my, cx(), Math.max(ry, cy()), cw(), Math.min(ry + r.h, cy() + ch()) - Math.max(ry, cy()));
+            drawRow(ms, r, ry, hov);
+        }
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        if (rows.isEmpty()) {
+            String t = "Ничего не найдено";
+            Fonts.draw(ms, t, cx() + (cw() - Fonts.width(t)) / 2f, cy() + 30, 0xFF6E6E80);
+        }
+
+        if (contentH > ch()) {
+            int barH = Math.max(18, (int) (ch() * (ch() / (double) contentH)));
+            int barY = cy() + (int) ((ch() - barH) * (maxScroll == 0 ? 0 : scrollShown / maxScroll));
+            Gfx.round(ms, px + W - 6, barY, px + W - 3, barY + barH, 1, Theme.alpha(Theme.hi(), 0xA0));
+        }
+
+        String hint = listening != null
+                ? "Нажмите клавишу • Backspace — убрать • Esc — отмена"
+                : "ЛКМ — вкл/выкл • ПКМ — настройки • Ctrl+F — поиск";
+        Fonts.draw(ms, hint, cx(), py + H - 14, 0xFF6E6E80);
+        super.render(ms, mx, my, delta);
+    }
+
+    private static final float[] SSX = new float[60], SSY = new float[60], SSP = new float[60];
+    static {
+        java.util.Random r = new java.util.Random(777);
+        for (int i = 0; i < 60; i++) {
+            SSX[i] = r.nextFloat(); SSY[i] = r.nextFloat(); SSP[i] = r.nextFloat() * 10;
+        }
+    }
+
+    /** Секретный раздел: туманность фиолетово-золотого цвета, мерцающие звёзды и руническое кольцо. */
+    private void secretBackdrop(MatrixStack ms, int x1, int y1, int x2, int y2) {
+        float t = (System.currentTimeMillis() % 1000000L) / 1000f;
+        Gfx.vgrad(ms, x1, y1, x2, y2, 0x402A0B55, 0x30331A05);
+        int w = x2 - x1, h = y2 - y1;
+        int bx = x1 + (int) (w * (0.7 + 0.15 * Math.sin(t * 0.4))), by = y1 + (int) (h * (0.35 + 0.15 * Math.cos(t * 0.33)));
+        for (int k = 0; k < 5; k++) {
+            Gfx.circle(ms, bx, by, 110 - k * 20, 4, 0x0CB06CFF);
+        }
+        int gx = x1 + (int) (w * (0.25 + 0.1 * Math.cos(t * 0.37))), gy = y1 + (int) (h * (0.75 + 0.1 * Math.sin(t * 0.3)));
+        for (int k = 0; k < 4; k++) {
+            Gfx.circle(ms, gx, gy, 80 - k * 18, 4, 0x0AFFC14D);
+        }
+        // вращающееся кольцо из точек
+        int rcx = x2 - 46, rcy = y1 + 22;
+        for (int i = 0; i < 24; i++) {
+            double ang = t * 0.8 + i * Math.PI * 2 / 24;
+            int px = rcx + (int) (Math.cos(ang) * 16), py2 = rcy + (int) (Math.sin(ang) * 16);
+            fill(ms, px, py2, px + 1, py2 + 1, i % 2 == 0 ? 0xC0FFD27A : 0xC0B06CFF);
+        }
+        for (int i = 0; i < 60; i++) {
+            int sx = x1 + (int) (SSX[i] * w), sy = y1 + (int) (((SSY[i] - t * 0.01f * (1 + i % 3)) % 1f + 1f) % 1f * h);
+            int a = (int) (0x30 + 0x90 * (0.5 + 0.5 * Math.sin(t * 2 + SSP[i])));
+            int col = i % 2 == 0 ? 0xFFFFD27A : 0xFFC9A2FF;
+            fill(ms, sx, sy, sx + 1, sy + 1, Theme.alpha(col, a));
+            if (i % 7 == 0) {
+                fill(ms, sx - 1, sy, sx + 2, sy + 1, Theme.alpha(col, a / 3));
+                fill(ms, sx, sy - 1, sx + 1, sy + 2, Theme.alpha(col, a / 3));
+            }
+        }
+    }
+
+    private static String icon(Category c) {
+        switch (c) {
+            case VISUAL:
+                return "◉";
+            case WORLD:
+                return "☀";
+            case SCREEN:
+                return "▣";
+            case HUD:
+                return "▤";
+            case SECRET:
+                return "✦";
+            default:
+                return "⚙";
+        }
+    }
+
+    private void drawSwitch(MatrixStack ms, int x, int y, int w, int h, float a) {
+        if (a > 0.05f) {
+            Gfx.glow(ms, x, y, x + w, y + h, h / 2, Theme.a1(), 3, (int) (0x70 * a));
+        }
+        Gfx.round(ms, x, y, x + w, y + h, h / 2, Theme.lerp(0xFF2A2A36, Theme.a1(), a));
+        int r = h / 2 - 2;
+        int kx = (int) (x + h / 2 + (w - h) * a);
+        Gfx.circle(ms, kx, y + h / 2, r, Theme.lerp(0xFF8C8C9C, 0xFFFFFFFF, a));
+    }
+
+    private void drawRow(MatrixStack ms, Row r, int ry, boolean hov) {
+        int cx = cx(), cw = cw();
+        if (r.type == T_MOD) {
+            Module m = r.m;
+            float a = anim(m);
+            boolean open = OPEN.contains(m);
+            int bg = Theme.lerp(hov ? 0x2CFFFFFF : 0x18FFFFFF, Theme.alpha(Theme.a1(), hov ? 0x48 : 0x34), a * 0.8f);
+            if (a > 0.05f && Gfx.glowLevel() > 0) {
+                Gfx.glow(ms, cx, ry, cx + cw, ry + ROW_MOD, 6, Theme.a1(), 2, (int) (0x40 * a));
+            }
+            Gfx.glass(ms, cx, ry, cx + cw, ry + ROW_MOD, 6, bg);
+            if (a > 0.02f) {
+                Gfx.round(ms, cx, ry + 6, cx + 2, ry + ROW_MOD - 6, 1, Theme.alpha(Theme.hi(), (int) (255 * a)));
+            }
+            Fonts.shadow(ms, m.name, cx + 10, ry + 5, Theme.lerp(0xFFE4E4EC, Theme.hi(), a));
+            ms.push();
+            ms.scale(0.75f, 0.75f, 1f);
+            String d = search.isEmpty() ? m.desc : m.category.title + " • " + m.desc;
+            int maxW = (int) ((bindX() - 18 - cx - 10) / 0.75f);
+            if (Fonts.width(d) > maxW) {
+                d = Fonts.trim(d, maxW - Fonts.width("...")) + "...";
+            }
+            Fonts.draw(ms, d, (cx + 10) / 0.75f, (ry + 17) / 0.75f, 0xFF8C8C9A);
+            ms.pop();
+
+            if (m.alwaysOn) {
+                Fonts.draw(ms, "всегда", switchX() - 4, ry + 11, 0xFF6E6E80);
+            } else {
+                drawSwitch(ms, switchX(), ry + 9, 24, 12, a);
+                int bx = bindX();
+                Gfx.round(ms, bx, ry + 8, bx + 40, ry + 22, 4, listening == m ? Theme.alpha(Theme.a1(), 0xC0) : 0x50000000);
+                String k = listening == m ? "..." : keyName(m.key);
+                Fonts.draw(ms, k, bx + (40 - Fonts.width(k)) / 2f, ry + 11, 0xFFD8D8E2);
+            }
+            if (!m.settings.isEmpty()) {
+                String mark = open ? "−" : "+";
+                Fonts.shadow(ms, mark, bindX() - 12, ry + 11, open ? Theme.hi() : 0xFF9A9AAA);
+            }
+            return;
+        }
+
+        Gfx.round(ms, cx + 8, ry, cx + cw, ry + ROW_SET, 3, hov ? 0x1EFFFFFF : 0x0EFFFFFF);
+        fill(ms, cx + 12, ry + 4, cx + 13, ry + ROW_SET - 4, Theme.alpha(Theme.a1(), 0x90));
+        Fonts.draw(ms, r.s.name, cx + 18, ry + 5, 0xFFC8C8D4);
+        if (r.type == T_BOOL) {
+            drawSwitch(ms, cx + cw - 30, ry + 4, 20, 10, anim((Setting.Bool) r.s));
+        } else if (r.type == T_NUM) {
+            Setting.Num n = (Setting.Num) r.s;
+            int tx = trackX();
+            double t = (n.value - n.min) / (n.max - n.min);
+            int fillW = (int) (100 * t);
+            Gfx.round(ms, tx, ry + 7, tx + 100, ry + 11, 2, 0x50000000);
+            if (fillW > 0) {
+                Gfx.hgrad(ms, tx, ry + 7, tx + fillW, ry + 11, Theme.a1(), Theme.hi());
+            }
+            Gfx.circle(ms, tx + fillW, ry + 9, 4, 0xFFFFFFFF);
+            Fonts.draw(ms, n.text(), tx + 108, ry + 5, 0xFFFFFFFF);
+        } else {
+            Setting.Mode md = (Setting.Mode) r.s;
+            String v = md.get();
+            int vw = Fonts.width(v) + 20;
+            int vx = cx + cw - 6 - vw;
+            Gfx.round(ms, vx, ry + 2, vx + vw, ry + ROW_SET - 2, 4, Theme.alpha(Theme.a1(), 0x40));
+            Fonts.draw(ms, "‹", vx + 4, ry + 5, 0xFF9A9AAA);
+            Fonts.draw(ms, "›", vx + vw - 8, ry + 5, 0xFF9A9AAA);
+            Fonts.shadow(ms, v, vx + 10, ry + 5, Theme.hi());
+        }
+    }
+
+    private void scissor(int x, int y, int w, int h) {
+        double sf = client.getWindow().getScaleFactor();
+        int fbh = client.getWindow().getFramebufferHeight();
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor((int) (x * sf), (int) (fbh - (y + h) * sf), (int) (w * sf), (int) (h * sf));
+    }
+
+    private static String keyName(int key) {
+        if (key < 0) {
+            return "—";
+        }
+        String s = InputUtil.fromKeyCode(key, -1).getLocalizedText().getString();
+        return s.length() > 6 ? s.substring(0, 6) : s;
+    }
+
+    // ---------- ввод ----------
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (listening != null) {
+            listening = null;
+            return true;
+        }
+        int px = px();
+        if (Gfx.in(mx, my, searchX(), searchY(), SEARCH_W, 18)) {
+            searchFocus = true;
+            if (button == 1) {
+                search = "";
+            }
+            return true;
+        }
+        searchFocus = false;
+
+        Category[] cats = dev.warax.visuals.module.Secret.cats();
+        for (int i = 0; i < cats.length; i++) {
+            if (Gfx.in(mx, my, px + 8, catY(i), SIDE - 16, 20)) {
+                cat = cats[i];
+                search = "";
+                scroll = 0;
+                return true;
+            }
+        }
+        for (int i = 0; i < Theme.count(); i++) {
+            if (Gfx.in(mx, my, themeX(i) - 8, themeY(i) - 8, 16, 16)) {
+                Theme.set(i);
+                return true;
